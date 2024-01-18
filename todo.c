@@ -44,10 +44,9 @@ void initialize_db()
     }
 
     sqlite3_close(db);
-    return;
 }
 
-void add_task(sqlite3 *db, const char *name, const char *category, const char *start_date, const char *due_date, const char *completion_date, const char *status, const char *priority, const char *description)
+void add_task(sqlite3 *db, Task task)
 {
     sqlite3_stmt *stmt;
     int rc;
@@ -60,7 +59,7 @@ void add_task(sqlite3 *db, const char *name, const char *category, const char *s
         return;
     }
     
-    const char *task_data[] = {name, category, start_date, due_date, completion_date, status, priority, description};
+    const char *task_data[] = {task.name, task.category, task.start_date, task.due_date, task.completion_date, task.status, task.priority, task.description};
     int num_params = sizeof(task_data) / sizeof(task_data[0]);
 
     for (int i = 0; i < num_params; i++) {
@@ -96,6 +95,30 @@ void list_tasks(sqlite3 *db)
     }
 }
 
+void delete_task(sqlite3 *db, int task_id)
+{
+    sqlite3_stmt *stmt;
+    int rc;
+    const char *sql;
+
+    sql = "DELETE FROM Tasks WHERE Id = ?;";
+    rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
+    if (rc != SQLITE_OK) {
+        fprintf(stderr, "Cannot prepare statement: %s\n", sqlite3_errmsg(db));
+        return;
+    }
+
+    sqlite3_bind_int(stmt, 1, task_id);
+
+    rc = sqlite3_step(stmt);
+    if (rc != SQLITE_DONE) {
+        fprintf(stderr, "Execution failed: %s\n", sqlite3_errmsg(db));
+    } else {
+        printf("Task deleted successfully\n");
+    }
+
+    sqlite3_finalize(stmt);
+}
 int main()
 {
     sqlite3 *db;
@@ -110,10 +133,22 @@ int main()
         return 1;
     }
 
-    add_task(db, "add_task function", "programming", "01/17/2024", "01/18/2024", "01/18/2024", "Completed",NULL, NULL);
+    Task newTask = {
+        .name = "TaskName",
+        .due_date = "2024-01-20",
+        .description = "Sample Task Description",
+    };
+
+    list_tasks(db);
+    add_task(db, newTask);
+    list_tasks(db);
+    delete_task(db, 1);
+    list_tasks(db);
+    add_task(db, newTask);
+    list_tasks(db);
+    delete_task(db, 2);
     list_tasks(db);
     
-
     sqlite3_close(db);
 
     return 0;
