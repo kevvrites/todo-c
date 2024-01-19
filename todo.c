@@ -1,5 +1,7 @@
 #include <sqlite3.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #define NUM_OF_COLS 8
 
@@ -77,23 +79,55 @@ void add_task(sqlite3 *db, Task task)
 
 }
 
-void edit_tasks(sqlite3 *db, int task_id, Task updated_task)
-{
+const char* get_column_text(sqlite3_stmt *stmt, int col) {
+    const unsigned char* text = sqlite3_column_text(stmt, col);
+    return text ? (const char*)text : NULL;
+}
+
+Task get_task_by_id(sqlite3 *db, int task_id) {
+    sqlite3_stmt *stmt;
+    const char *sql = "SELECT Name, Category, StartDate, DueDate, CompletionDate, Status, Priority, Description FROM Tasks WHERE Id = ?;";
+    Task task = {0};
+
+    sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
+    sqlite3_bind_int(stmt, 1, task_id);
+
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+        for (int i = 0; i < NUM_OF_COLS; i++) {
+            const char *colText = (const char *)sqlite3_column_text(stmt, i);
+            if (colText) {
+                char *temp = malloc(strlen(colText) + 1);
+                if (temp) {
+                    strcpy(temp, colText);
+                }
+                *((char **)&task + i) = temp;
+            }
+        }
+    }
+
+    sqlite3_finalize(stmt);
+    return task;
+}
+
+void edit_task(sqlite3 *db, int task_id, Task updated_task) {
+    Task current_task;
+    
+    current_task = get_task_by_id(db, task_id);
+
+    const char* task_fields[] = {
+        updated_task.name ? updated_task.name : current_task.name,
+        updated_task.category ? updated_task.category : current_task.category,
+        updated_task.start_date ? updated_task.start_date : current_task.start_date,
+        updated_task.due_date ? updated_task.due_date : current_task.due_date,
+        updated_task.completion_date ? updated_task.completion_date : current_task.completion_date,
+        updated_task.status ? updated_task.status : current_task.status,
+        updated_task.priority ? updated_task.priority : current_task.priority,
+        updated_task.description ? updated_task.description : current_task.description
+    };
+
     sqlite3_stmt *stmt;
     int rc;
-    const char *sql;
-
-    sql = "UPDATE Tasks SET Name = ?, Category = ?, StartDate = ?, DueDate = ?, CompletionDate = ?, Status = ?, Priority = ?, Description = ? WHERE Id = ?;";
-    const char* task_fields[] = {
-        updated_task.name,
-        updated_task.category,
-        updated_task.start_date,
-        updated_task.due_date,
-        updated_task.completion_date,
-        updated_task.status,
-        updated_task.priority,
-        updated_task.description,
-    };
+    const char *sql = "UPDATE Tasks SET Name = ?, Category = ?, StartDate = ?, DueDate = ?, CompletionDate = ?, Status = ?, Priority = ?, Description = ? WHERE Id = ?;";
 
     rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
     if (rc != SQLITE_OK) {
@@ -101,8 +135,8 @@ void edit_tasks(sqlite3 *db, int task_id, Task updated_task)
         return;
     }
 
-    for (int i = 0; i < NUM_OF_COLS; i++) {
-        sqlite3_bind_text(stmt, i + 1, task_fields[i] ? task_fields[i] : NULL, -1, SQLITE_TRANSIENT);
+    for (int i = 0; i < 8; i++) {
+        sqlite3_bind_text(stmt, i + 1, task_fields[i], -1, SQLITE_TRANSIENT);
     }
 
     sqlite3_bind_int(stmt, 9, task_id);
@@ -115,6 +149,10 @@ void edit_tasks(sqlite3 *db, int task_id, Task updated_task)
     }
 
     sqlite3_finalize(stmt);
+
+    for (int i = 0; i < NUM_OF_COLS; i++) {
+        free(*((char **)&current_task + i));
+    }
 }
 
 static int list_callback(void *NotUsed, int argc, char **argv, char **azColName)
@@ -176,21 +214,23 @@ int main()
         return 1;
     }
 
-    Task newTask = {
-        .name = "TaskName",
-        .due_date = "2024-01-20",
-        .description = "Sample Task Description",
-    };
+    // Task newTask = {
+    //     .name = "TaskName",
+    //     .due_date = "01-20-2024",
+    //     .description = "Sample Task Description",
+    // };
+
+    // add_task(db, newTask);
 
     list_tasks(db);
 
     Task updateTask = {
-        .name = "SameName",
-        .due_date = "01-20-2024",
-        .description = "New task description",
+        .name = "testing_new_edit",
+        .priority = "low",
+        .category = "programming",
     };
 
-    edit_tasks(db, 3, updateTask);
+    edit_task(db, 4, updateTask);
     
     list_tasks(db);
 
