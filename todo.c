@@ -1,6 +1,8 @@
 #include <sqlite3.h>
 #include <stdio.h>
 
+#define NUM_OF_COLS 8
+
 typedef struct {
     const char *name;
     const char *category;
@@ -17,6 +19,7 @@ void initialize_db()
     sqlite3 *db;
     char *err_msg = 0;
     int rc;
+    const char *sql;
 
     rc = sqlite3_open("todo.db", &db);
     if (rc != SQLITE_OK) {
@@ -25,7 +28,7 @@ void initialize_db()
         return;
     }
 
-    const char *sql = "CREATE TABLE IF NOT EXISTS Tasks("
+    sql = "CREATE TABLE IF NOT EXISTS Tasks("
                       "Id INTEGER PRIMARY KEY, "
                       "Name TEXT NOT NULL, "
                       "Category TEXT, "
@@ -60,9 +63,8 @@ void add_task(sqlite3 *db, Task task)
     }
     
     const char *task_data[] = {task.name, task.category, task.start_date, task.due_date, task.completion_date, task.status, task.priority, task.description};
-    int num_params = sizeof(task_data) / sizeof(task_data[0]);
 
-    for (int i = 0; i < num_params; i++) {
+    for (int i = 0; i < NUM_OF_COLS; i++) {
         sqlite3_bind_text(stmt, i + 1, task_data[i] ? task_data[i] : NULL, -1, SQLITE_TRANSIENT);
     }
 
@@ -73,6 +75,46 @@ void add_task(sqlite3 *db, Task task)
         printf("Task added successfully\n");
     }
 
+}
+
+void edit_tasks(sqlite3 *db, int task_id, Task updated_task)
+{
+    sqlite3_stmt *stmt;
+    int rc;
+    const char *sql;
+
+    sql = "UPDATE Tasks SET Name = ?, Category = ?, StartDate = ?, DueDate = ?, CompletionDate = ?, Status = ?, Priority = ?, Description = ? WHERE Id = ?;";
+    const char* task_fields[] = {
+        updated_task.name,
+        updated_task.category,
+        updated_task.start_date,
+        updated_task.due_date,
+        updated_task.completion_date,
+        updated_task.status,
+        updated_task.priority,
+        updated_task.description,
+    };
+
+    rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
+    if (rc != SQLITE_OK) {
+        fprintf(stderr, "Cannot prepare statement: %s\n", sqlite3_errmsg(db));
+        return;
+    }
+
+    for (int i = 0; i < NUM_OF_COLS; i++) {
+        sqlite3_bind_text(stmt, i + 1, task_fields[i] ? task_fields[i] : NULL, -1, SQLITE_TRANSIENT);
+    }
+
+    sqlite3_bind_int(stmt, 9, task_id);
+
+    rc = sqlite3_step(stmt);
+    if (rc != SQLITE_DONE) {
+        fprintf(stderr, "Execution failed: %s\n", sqlite3_errmsg(db));
+    } else {
+        printf("Task updated successfully\n");
+    }
+
+    sqlite3_finalize(stmt);
 }
 
 static int list_callback(void *NotUsed, int argc, char **argv, char **azColName)
@@ -119,6 +161,7 @@ void delete_task(sqlite3 *db, int task_id)
 
     sqlite3_finalize(stmt);
 }
+
 int main()
 {
     sqlite3 *db;
@@ -140,15 +183,17 @@ int main()
     };
 
     list_tasks(db);
-    add_task(db, newTask);
-    list_tasks(db);
-    delete_task(db, 1);
-    list_tasks(db);
-    add_task(db, newTask);
-    list_tasks(db);
-    delete_task(db, 2);
-    list_tasks(db);
+
+    Task updateTask = {
+        .name = "SameName",
+        .due_date = "01-20-2024",
+        .description = "New task description",
+    };
+
+    edit_tasks(db, 3, updateTask);
     
+    list_tasks(db);
+
     sqlite3_close(db);
 
     return 0;
