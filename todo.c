@@ -212,7 +212,8 @@ int main()
 
     const int screenWidth = 800;
     const int screenHeight = 450;
-    
+    Color background_color = RAYWHITE;
+
     initialize_db();
 
     rc = sqlite3_open("todo.db", &db);
@@ -228,7 +229,11 @@ int main()
 
     while (!WindowShouldClose()) {
         BeginDrawing();
-            ClearBackground(RAYWHITE);
+            ClearBackground(background_color);
+            if (GuiButton((Rectangle){ 10, 40, 120, 30}, "Click Me")) {
+                background_color = RED;
+                printf("Button Clicked");
+            }
             DrawText("Welcome", 190, 200, 20, LIGHTGRAY);
         EndDrawing();
     }
@@ -242,17 +247,17 @@ int main()
 
     // add_task(db, newTask);
 
-    list_tasks(db);
+    // list_tasks(db);
 
-    Task updateTask = {
-        .name = "testing_new_edit",
-        .priority = "low",
-        .category = "programming",
-    };
+    // Task updateTask = {
+    //     .name = "testing_new_edit",
+    //     .priority = "low",
+    //     .category = "programming",
+    // };
 
-    edit_task(db, 4, updateTask);
+    // edit_task(db, 4, updateTask);
     
-    list_tasks(db);
+    // list_tasks(db);
 
     sqlite3_close(db);
 
