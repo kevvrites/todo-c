@@ -14,6 +14,15 @@ Todo
 - create list task function
 - create delete task function
 - create edit task function
-- --> create get task from ID function
+- create get task from ID function
 - make edit task function pull from ID to update (removes required params)
-- create clear database function (hard reset)
+- --> add raylib / raygui
+- --> create clear database function (hard reset) + WARNING
+- print / format task table
+- make UI
+- add task button
+- task fields
+- edit task button
+- delete task button
+- hard reset button + confirm
+-

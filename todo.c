@@ -1,3 +1,8 @@
+#include "raylib.h"
+
+#define RAYGUI_IMPLEMENTATION
+#include "raygui.h"
+
 #include <sqlite3.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -205,6 +210,9 @@ int main()
     sqlite3 *db;
     int rc;
 
+    const int screenWidth = 800;
+    const int screenHeight = 450;
+    
     initialize_db();
 
     rc = sqlite3_open("todo.db", &db);
@@ -214,6 +222,18 @@ int main()
         return 1;
     }
 
+    InitWindow(screenWidth, screenHeight, "Raylib test");
+
+    SetTargetFPS(60);
+
+    while (!WindowShouldClose()) {
+        BeginDrawing();
+            ClearBackground(RAYWHITE);
+            DrawText("Welcome", 190, 200, 20, LIGHTGRAY);
+        EndDrawing();
+    }
+
+    CloseWindow();
     // Task newTask = {
     //     .name = "TaskName",
     //     .due_date = "01-20-2024",

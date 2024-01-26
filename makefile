@@ -1,6 +1,6 @@
 CC=gcc
-CFLAGS=-Wall -g
-LIBS=-lsqlite3
+CFLAGS=-Wall -g -I/usr/local/include
+LIBS=-lsqlite3 -lraylib -framework IOKit -framework Cocoa -framework OpenGL -framework Metal
 
 todo: todo.o
 	$(CC) -o todo todo.o $(LIBS)
