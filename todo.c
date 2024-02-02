@@ -11,14 +11,15 @@
 #define NUM_OF_COLS 8
 
 typedef struct {
-    const char *name;
-    const char *category;
-    const char *start_date;
-    const char *due_date;
-    const char *completion_date;
-    const char *status;
-    const char *priority;
-    const char *description;
+    int id;
+    char *name;
+    char *category;
+    char *start_date;
+    char *due_date;
+    char *completion_date;
+    char *status;
+    char *priority;
+    char *description;
 } Task;
 
 void initialize_db()
@@ -205,14 +206,65 @@ void delete_task(sqlite3 *db, int task_id)
     sqlite3_finalize(stmt);
 }
 
+typedef struct {
+    Task *tasks;
+    size_t count;
+} TaskList;
+
+TaskList fetch_tasks(sqlite3 *db) {
+    TaskList tasklist = {NULL, 0};
+    sqlite3_stmt *stmt;
+    const char *sql;
+
+    sql = "SELECT Id, Name, Category, StartDate, DueDate, CompletionDate, Status, Priority, Description FROM Tasks;";
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
+        fprintf(stderr, "Failed to prepare statement: %s\n", sqlite3_errmsg(db));
+        return tasklist;
+    }
+
+    size_t capacity = 10;
+    tasklist.tasks = malloc(capacity * sizeof(Task));
+    if (!tasklist.tasks) {
+        fprintf(stderr, "Failed to allocate memory\n");
+        sqlite3_finalize(stmt);
+        return tasklist;
+    }
+
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        if (tasklist.count >= capacity) {
+            capacity *= 2;
+            Task *temp = realloc(tasklist.tasks, capacity * sizeof(Task));
+            if (!temp) {
+                fprintf(stderr, "Failed to realloc memory\n");
+                break;
+            }
+            tasklist.tasks = temp;
+        }
+
+        Task *task = &tasklist.tasks[tasklist.count++];
+        task->id = sqlite3_column_int(stmt, 0);
+        task->name = strdup((const char *)sqlite3_column_text(stmt, 1));
+        task->category = strdup((const char *)sqlite3_column_text(stmt, 2));
+        task->start_date = strdup((const char *)sqlite3_column_text(stmt, 3));
+        task->due_date = strdup((const char *)sqlite3_column_text(stmt, 4));
+        task->completion_date = strdup((const char *)sqlite3_column_text(stmt, 5));
+        task->status = strdup((const char *)sqlite3_column_text(stmt, 6));
+        task->priority = strdup((const char *)sqlite3_column_text(stmt, 7));
+        task->description = strdup((const char *)sqlite3_column_text(stmt, 8));
+    }
+
+    sqlite3_finalize(stmt);
+    return tasklist;
+}
+
 int main()
 {
     sqlite3 *db;
     int rc;
 
-    const int screenWidth = 800;
-    const int screenHeight = 450;
-    Color background_color = RAYWHITE;
+    // const int screenWidth = 800;
+    // const int screenHeight = 450;
+    // Color background_color = RAYWHITE;
 
     initialize_db();
 
@@ -222,42 +274,69 @@ int main()
         sqlite3_close(db);
         return 1;
     }
-
-    InitWindow(screenWidth, screenHeight, "Raylib test");
-
-    SetTargetFPS(60);
-
-    while (!WindowShouldClose()) {
-        BeginDrawing();
-            ClearBackground(background_color);
-            if (GuiButton((Rectangle){ 10, 40, 120, 30}, "Click Me")) {
-                background_color = RED;
-                printf("Button Clicked");
-            }
-            DrawText("Welcome", 190, 200, 20, LIGHTGRAY);
-        EndDrawing();
-    }
-
-    CloseWindow();
-    // Task newTask = {
-    //     .name = "TaskName",
-    //     .due_date = "01-20-2024",
-    //     .description = "Sample Task Description",
-    // };
-
-    // add_task(db, newTask);
-
-    // list_tasks(db);
-
-    // Task updateTask = {
-    //     .name = "testing_new_edit",
-    //     .priority = "low",
-    //     .category = "programming",
-    // };
-
-    // edit_task(db, 4, updateTask);
     
-    // list_tasks(db);
+    // TaskList tasklist = fetch_tasks(db);
+
+    // InitWindow(screenWidth, screenHeight, "Raylib test");
+
+    // SetTargetFPS(60);
+
+    // while (!WindowShouldClose()) {
+    //     BeginDrawing();
+    //         ClearBackground(background_color);
+    //         if (GuiButton((Rectangle){ 10, 40, 120, 30}, "Click Me")) {
+    //             background_color = RED;
+    //         }
+    //         DrawText("Welcome", 190, 200, 20, LIGHTGRAY);
+    //     EndDrawing();
+    // }
+
+    // CloseWindow();
+    Task newTask = {
+        .name = "TaskName",
+        .due_date = "01-20-2024",
+        .description = "Sample Task Description",
+    };
+
+    add_task(db, newTask);
+    add_task(db, newTask);
+
+    Task updateTask = {
+        .name = "testing_new_edit",
+        .priority = "low",
+        .category = "programming",
+        .due_date = "02-02-2024"
+    };
+
+    edit_task(db, 1, updateTask);
+    
+    list_tasks(db);
+
+    // for (size_t i = 0; i < tasklist.count; i++) {
+    //     Task *task = &tasklist.tasks[i];
+    //     printf("Task %zu: \n", i + 1);
+    //     printf("ID: %d\n", task->id);
+    //     printf("Name: %s\n", task->name);
+    //     printf("Category: %s\n", task->category);
+    //     printf("Start Date: %s\n", task->start_date);
+    //     printf("Due Date: %s\n", task->due_date);
+    //     printf("Completion Date: %s\n", task->completion_date);
+    //     printf("Status: %s\n", task->status);
+    //     printf("Priority: %s\n", task->priority);
+    //     printf("Description: %s\n\n", task->description);
+    // }
+
+    // for (size_t i = 0; i < tasklist.count; i++) {
+    //     free(tasklist.tasks[i].name);
+    //     free(tasklist.tasks[i].category);
+    //     free(tasklist.tasks[i].start_date);
+    //     free(tasklist.tasks[i].due_date);
+    //     free(tasklist.tasks[i].completion_date);
+    //     free(tasklist.tasks[i].status);
+    //     free(tasklist.tasks[i].priority);
+    //     free(tasklist.tasks[i].description);
+    // }
+    // free(tasklist.tasks);
 
     sqlite3_close(db);
 
