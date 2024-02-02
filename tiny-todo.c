@@ -8,18 +8,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define NUM_OF_COLS 8
-
 typedef struct {
     int id;
     char *name;
-    char *category;
-    char *start_date;
-    char *due_date;
-    char *completion_date;
-    char *status;
-    char *priority;
-    char *description;
 } Task;
 
 void initialize_db()
@@ -29,7 +20,7 @@ void initialize_db()
     int rc;
     const char *sql;
 
-    rc = sqlite3_open("todo.db", &db);
+    rc = sqlite3_open("tiny-todo.db", &db);
     if (rc != SQLITE_OK) {
         fprintf(stderr, "Cannot open database: %s\n", sqlite3_errmsg(db));
         sqlite3_close(db);
@@ -38,14 +29,7 @@ void initialize_db()
 
     sql = "CREATE TABLE IF NOT EXISTS Tasks("
                       "Id INTEGER PRIMARY KEY, "
-                      "Name TEXT NOT NULL, "
-                      "Category TEXT, "
-                      "StartDate DATE, "
-                      "DueDate DATE, "
-                      "CompletionDate DATE, "
-                      "Status TEXT, "
-                      "Priority TEXT, "
-                      "Description TEXT);";
+                      "Name TEXT NOT NULL); ";
 
     rc = sqlite3_exec(db, sql, 0, 0, &err_msg);
     if (rc != SQLITE_OK) {
@@ -63,18 +47,16 @@ void add_task(sqlite3 *db, Task task)
     int rc;
     const char *sql;
 
-    sql = "INSERT INTO Tasks (Name, Category, StartDate, DueDate, CompletionDate, Status, Priority, Description) VALUES (?, ?, ?, ?, ?, ?, ?, ?);";
+    sql = "INSERT INTO Tasks (Name) VALUES (?);";
     rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
     if (rc != SQLITE_OK) {
         fprintf(stderr, "Cannot prepare statement: %s\n", sqlite3_errmsg(db));
         return;
     }
     
-    const char *task_data[] = {task.name, task.category, task.start_date, task.due_date, task.completion_date, task.status, task.priority, task.description};
+    const char *task_data[] = {task.name};
 
-    for (int i = 0; i < NUM_OF_COLS; i++) {
-        sqlite3_bind_text(stmt, i + 1, task_data[i] ? task_data[i] : NULL, -1, SQLITE_TRANSIENT);
-    }
+    sqlite3_bind_text(stmt, 1, task_data[0] ? task_data[0] : NULL, -1, SQLITE_TRANSIENT);
 
     rc = sqlite3_step(stmt);
     if (rc != SQLITE_DONE) {
@@ -99,15 +81,13 @@ Task get_task_by_id(sqlite3 *db, int task_id) {
     sqlite3_bind_int(stmt, 1, task_id);
 
     if (sqlite3_step(stmt) == SQLITE_ROW) {
-        for (int i = 0; i < NUM_OF_COLS; i++) {
-            const char *colText = (const char *)sqlite3_column_text(stmt, i);
-            if (colText) {
-                char *temp = malloc(strlen(colText) + 1);
-                if (temp) {
-                    strcpy(temp, colText);
-                }
-                *((char **)&task + i) = temp;
+        const char *colText = (const char *)sqlite3_column_text(stmt, 0);
+        if (colText) {
+            char *temp = malloc(strlen(colText) + 1);
+            if (temp) {
+                strcpy(temp, colText);
             }
+            *((char **)&task) = temp;
         }
     }
 
@@ -122,18 +102,11 @@ void edit_task(sqlite3 *db, int task_id, Task updated_task) {
 
     const char* task_fields[] = {
         updated_task.name ? updated_task.name : current_task.name,
-        updated_task.category ? updated_task.category : current_task.category,
-        updated_task.start_date ? updated_task.start_date : current_task.start_date,
-        updated_task.due_date ? updated_task.due_date : current_task.due_date,
-        updated_task.completion_date ? updated_task.completion_date : current_task.completion_date,
-        updated_task.status ? updated_task.status : current_task.status,
-        updated_task.priority ? updated_task.priority : current_task.priority,
-        updated_task.description ? updated_task.description : current_task.description
     };
 
     sqlite3_stmt *stmt;
     int rc;
-    const char *sql = "UPDATE Tasks SET Name = ?, Category = ?, StartDate = ?, DueDate = ?, CompletionDate = ?, Status = ?, Priority = ?, Description = ? WHERE Id = ?;";
+    const char *sql = "UPDATE Tasks SET Name = ? WHERE Id = ?;";
 
     rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
     if (rc != SQLITE_OK) {
@@ -141,11 +114,8 @@ void edit_task(sqlite3 *db, int task_id, Task updated_task) {
         return;
     }
 
-    for (int i = 0; i < 8; i++) {
-        sqlite3_bind_text(stmt, i + 1, task_fields[i], -1, SQLITE_TRANSIENT);
-    }
-
-    sqlite3_bind_int(stmt, 9, task_id);
+    sqlite3_bind_text(stmt, 1, task_fields[0], -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int(stmt, 2, task_id);
 
     rc = sqlite3_step(stmt);
     if (rc != SQLITE_DONE) {
@@ -156,9 +126,7 @@ void edit_task(sqlite3 *db, int task_id, Task updated_task) {
 
     sqlite3_finalize(stmt);
 
-    for (int i = 0; i < NUM_OF_COLS; i++) {
-        free(*((char **)&current_task + i));
-    }
+    free(*((char **)&current_task));
 }
 
 static int list_callback(void *NotUsed, int argc, char **argv, char **azColName)
@@ -244,13 +212,6 @@ TaskList fetch_tasks(sqlite3 *db) {
         Task *task = &tasklist.tasks[tasklist.count++];
         task->id = sqlite3_column_int(stmt, 0);
         task->name = strdup((const char *)sqlite3_column_text(stmt, 1));
-        task->category = strdup((const char *)sqlite3_column_text(stmt, 2));
-        task->start_date = strdup((const char *)sqlite3_column_text(stmt, 3));
-        task->due_date = strdup((const char *)sqlite3_column_text(stmt, 4));
-        task->completion_date = strdup((const char *)sqlite3_column_text(stmt, 5));
-        task->status = strdup((const char *)sqlite3_column_text(stmt, 6));
-        task->priority = strdup((const char *)sqlite3_column_text(stmt, 7));
-        task->description = strdup((const char *)sqlite3_column_text(stmt, 8));
     }
 
     sqlite3_finalize(stmt);
@@ -268,7 +229,7 @@ int main()
 
     initialize_db();
 
-    rc = sqlite3_open("todo.db", &db);
+    rc = sqlite3_open("tiny-todo.db", &db);
     if (rc != SQLITE_OK) {
         fprintf(stderr, "Error opening: %s\n", sqlite3_errmsg(db));
         sqlite3_close(db);
@@ -294,8 +255,6 @@ int main()
     // CloseWindow();
     Task newTask = {
         .name = "TaskName",
-        .due_date = "01-20-2024",
-        .description = "Sample Task Description",
     };
 
     add_task(db, newTask);
@@ -303,9 +262,6 @@ int main()
 
     Task updateTask = {
         .name = "testing_new_edit",
-        .priority = "low",
-        .category = "programming",
-        .due_date = "02-02-2024"
     };
 
     edit_task(db, 1, updateTask);
